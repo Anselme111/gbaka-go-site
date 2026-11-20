@@ -12,7 +12,8 @@
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#D3450B">
 <link rel="icon" href="logo.png">
-<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<!-- Feuille de la carte chargée sans bloquer l'affichage (réseaux mobiles lents). -->
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" media="print" onload="this.media='all'">
 <style>
   /* Page ouverte depuis WhatsApp sur un téléphone : une colonne, gros boutons. */
   :root {
@@ -249,7 +250,12 @@
     msg('');
     if (!navigator.geolocation) { msg('Votre navigateur ne donne pas la position. Ouvrez plutôt le lien dans l’app Gbaka Go.'); return; }
     const btn = $('route'); btn.disabled = true; btn.textContent = 'Recherche de votre position…';
-    navigator.geolocation.getCurrentPosition(async (p) => {
+    // Position approchée d'abord (rapide, suffit pour trouver les arrêts), précise en secours.
+    const locate = (ok, fail) => navigator.geolocation.getCurrentPosition(ok, (e) => {
+      if (e.code === 1) return fail(e);
+      navigator.geolocation.getCurrentPosition(ok, fail, { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
+    }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+    locate(async (p) => {
       const from = { lat: p.coords.latitude, lng: p.coords.longitude };
       btn.textContent = 'Recherche des trajets…';
       try {
@@ -264,7 +270,7 @@
       msg(e.code === 1
         ? 'Autorisez la localisation pour cette page (réglages du navigateur), puis réessayez.'
         : 'Position introuvable. Activez le GPS, puis réessayez.');
-    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+    });
   });
 })();
 </script>
