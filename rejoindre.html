@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Position partagée · Gbaka Go</title>
+<meta name="description" content="Voir le trajet en gbaka ou en wôrô-wôrô pour rejoindre cette position, à Abidjan.">
+<!-- Aperçu du lien dans WhatsApp -->
+<meta property="og:title" content="Position partagée sur Gbaka Go">
+<meta property="og:description" content="Touchez pour voir le trajet en gbaka ou en wôrô-wôrô pour venir.">
+<meta property="og:image" content="https://anselme111.github.io/gbaka-go-site/logo.png">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#D3450B">
+<link rel="icon" href="logo.png">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+  /* Page ouverte depuis WhatsApp sur un téléphone : une colonne, gros boutons. */
+  :root {
+    --brand: #D3450B; --brand-text: #B33A09; --brand-soft: #FDF0EA;
+    --bg: #F7F9FA; --card: #FFFFFF; --ink: #102A43; --muted: #4A5B6C; --line: #E2E8EE;
+    --gbaka: #0D7752; --woro: #2457AD; --alert-soft: #FFF8E1; --alert-ink: #7A5600;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --brand-text: #FF8A50; --brand-soft: #3A1A0C; --bg: #0B1A2A; --card: #102A43; --ink: #EAF1F7;
+      --muted: #A9B8C6; --line: #24425F; --gbaka: #4FD1A0; --woro: #7FA8F0; --alert-soft: #3A2E0A; --alert-ink: #FFD25C;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --brand-text: #FF8A50; --brand-soft: #3A1A0C; --bg: #0B1A2A; --card: #102A43; --ink: #EAF1F7;
+    --muted: #A9B8C6; --line: #24425F; --gbaka: #4FD1A0; --woro: #7FA8F0; --alert-soft: #3A2E0A; --alert-ink: #FFD25C;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 16px max(16px, env(safe-area-inset-right)) 32px max(16px, env(safe-area-inset-left));
+  }
+  main { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  header { display: flex; align-items: center; justify-content: center; padding: 4px 0; }
+  header img { height: 40px; width: auto; }
+  h1 { font-size: 1.5rem; line-height: 1.25; margin: 0; text-wrap: balance; }
+  .lead { margin: 4px 0 0; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 18px; }
+  #map { height: 260px; border-radius: 20px; overflow: hidden; border: 1px solid var(--line); background: var(--line); }
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 56px;
+    border-radius: 16px; border: 2px solid var(--brand); font: 700 1.05rem/1.2 inherit; cursor: pointer;
+    text-decoration: none; padding: 12px 16px; text-align: center;
+  }
+  .btn-primary { background: var(--brand); color: #fff; }
+  .btn-secondary { background: var(--card); color: var(--brand-text); }
+  .btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  .btn[disabled] { opacity: .6; cursor: wait; }
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+  .note { color: var(--muted); font-size: .9rem; margin: 0; text-align: center; }
+  .msg { background: var(--alert-soft); color: var(--alert-ink); border-radius: 16px; padding: 14px 16px; margin: 0; }
+  .opt { display: flex; flex-direction: column; gap: 12px; }
+  .opt + .opt { margin-top: 12px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .badge { border-radius: 999px; padding: 4px 12px; font-weight: 800; background: var(--brand-soft); color: var(--brand-text); }
+  .badge.muted { background: var(--bg); color: var(--ink); font-weight: 700; }
+  .best { font-size: .85rem; font-weight: 700; color: var(--brand-text); }
+  ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .walk { color: var(--muted); padding-left: 4px; }
+  .leg { border-left: 6px solid var(--gbaka); background: var(--bg); border-radius: 14px; padding: 10px 12px; }
+  .leg.woro_woro { border-left-color: var(--woro); }
+  .leg .line { font-size: .8rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: .02em; }
+  .leg .alt { font-size: .85rem; color: var(--muted); }
+  .leg b { font-weight: 800; }
+  details summary { cursor: pointer; font-weight: 700; color: var(--brand-text); padding: 8px 0; }
+  footer { text-align: center; color: var(--muted); font-size: .8rem; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <header><img src="logo.png" alt="Gbaka Go"></header>
+
+  <section class="card">
+    <h1 id="title">Position partagée</h1>
+    <p class="lead" id="lead">Voici le lieu. Gbaka Go vous montre comment y aller en gbaka ou en wôrô-wôrô.</p>
+  </section>
+
+  <div id="map" role="img" aria-label="Carte du lieu partagé"></div>
+
+  <div class="stack">
+    <button class="btn btn-primary" id="route" type="button">Voir le trajet depuis ma position</button>
+    <a class="btn btn-secondary" id="open-app" href="#">Ouvrir dans l’app Gbaka Go</a>
+    <p class="note">Votre position sert seulement à calculer le trajet ; elle n’est pas enregistrée.</p>
+  </div>
+
+  <p class="msg" id="msg" hidden></p>
+  <section class="card" id="results" hidden aria-live="polite"></section>
+
+  <footer>
+    Gbaka Go · lignes et arrêts © contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>
+  </footer>
+</main>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+(() => {
+  // Clé PUBLIQUE de l'app (la même que dans l'app installée).
+  const SUPABASE_URL = 'https://lqtaiphhzvxxuodxjtmf.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_EsSimvJO8dHxqRn6Znu5IA_qRA5fQMl';
+
+  const q = new URLSearchParams(location.search);
+  const lat = Number(q.get('lat'));
+  const lng = Number(q.get('lng'));
+  const name = (q.get('n') || '').trim().slice(0, 40);
+  const $ = (id) => document.getElementById(id);
+  const msg = (text) => { $('msg').textContent = text; $('msg').hidden = !text; };
+
+  const valid = Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && q.get('lat') !== null;
+  if (!valid) {
+    $('title').textContent = 'Lien incomplet';
+    $('lead').textContent = 'Ce lien ne contient pas de position. Demandez à la personne de vous le renvoyer depuis Gbaka Go.';
+    $('route').hidden = true; $('open-app').hidden = true; $('map').hidden = true;
+    return;
+  }
+  const dest = name ? `chez ${name}` : 'ce lieu';
+  $('title').textContent = name ? `${name} vous partage sa position` : 'Position partagée';
+  document.title = `${name ? name + ' · ' : ''}Position partagée · Gbaka Go`;
+
+  // Bouton « Ouvrir dans l'app » : lien fourni par l'app (Expo Go pendant les essais), sinon l'app installée.
+  const app = q.get('app');
+  const safeApp = app && /^(gbakago|exp|exps):\/\//.test(app) ? app : null;
+  const appParams = new URLSearchParams({ lat: String(lat), lng: String(lng) });
+  if (name) appParams.set('n', name);
+  $('open-app').href = safeApp || `gbakago://rejoindre?${appParams}`;
+
+  // ------------------------------------------------------------------ carte
+  let map = null;
+  const markers = [];
+  try {
+    map = new maplibregl.Map({
+      container: 'map', style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [lng, lat], zoom: 15, attributionControl: { compact: true },
+    });
+    const el = document.createElement('div');
+    el.style.cssText = 'width:22px;height:22px;border-radius:50%;background:#D3450B;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)';
+    markers.push(new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map));
+  } catch {
+    $('map').textContent = '';
+    $('map').hidden = true;
+  }
+
+  // -------------------------------------------- mots (comme dans l'app)
+  const WORDS = { gbaka: ['gbaka', 'gbakas', 'Gbaka'], woro_woro: ['wôrô-wôrô', 'wôrô-wôrôs', 'Wôrô-wôrô'] };
+  const words = (c) => WORDS[c] || WORDS.gbaka;
+  const dist = (m) => (m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`);
+  const walkMin = (m) => Math.max(1, Math.round(m / 1.2 / 60));
+  const minutes = (o) => {
+    const walk = o.walk_from_m + o.walk_change_m + o.walk_to_m;
+    const raw = o.total_stops * 3 + (walk > 0 ? walkMin(walk) : 0) + o.transfers * 5;
+    return Math.max(5, Math.round(raw / 5) * 5);
+  };
+  const duration = (m) => (m < 60 ? `≈ ${m} min` : `≈ ${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}`);
+  const count = (o) => {
+    if (o.legs.length === 1) return `1 ${words(o.legs[0].category)[0]} (direct)`;
+    const c = new Map();
+    for (const l of o.legs) c.set(l.category || 'gbaka', (c.get(l.category || 'gbaka') || 0) + 1);
+    return [...c].map(([k, n]) => `${n} ${n > 1 ? words(k)[1] : words(k)[0]}`).join(' + ');
+  };
+  const haversine = (a, b) => {
+    const r = Math.PI / 180;
+    const x = Math.sin(((b.lat - a.lat) * r) / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(((b.lng - a.lng) * r) / 2) ** 2;
+    return 2 * 6371000 * Math.asin(Math.sqrt(x));
+  };
+  // Lignes parallèles (mêmes arrêts) regroupées en une proposition, comme dans l'app.
+  const group = (options) => {
+    const seen = new Map(); const out = [];
+    for (const o of options) {
+      const key = o.legs.map((l, i) => `${l.category || 'gbaka'}|${l.from_stop.name}|${i < o.legs.length - 1 ? l.to_stop.name : ''}`).join('>');
+      const g = seen.get(key);
+      if (!g) { const c = { ...o, legs: o.legs.map((l) => ({ ...l, others: [] })) }; seen.set(key, c); out.push(c); continue; }
+      o.legs.forEach((l, i) => { const gl = g.legs[i]; if (l.route_name !== gl.route_name && !gl.others.includes(l.route_name)) gl.others.push(l.route_name); });
+    }
+    return out;
+  };
+
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const strong = (t) => { const b = document.createElement('b'); b.textContent = t; return b; };
+
+  function renderOption(o, best) {
+    const box = el('article', 'opt');
+    const badges = el('div', 'badges');
+    badges.append(el('span', 'badge', count(o)), el('span', 'badge muted', duration(minutes(o))));
+    if (best) badges.append(el('span', 'best', 'Le plus simple'));
+    box.append(badges);
+    const steps = el('ol', 'steps');
+    if (o.walk_from_m > 50) steps.append(el('li', 'walk', `🚶 Marchez ${dist(o.walk_from_m)} (${walkMin(o.walk_from_m)} min) jusqu’à l’arrêt ${o.legs[0].from_stop.name}`));
+    o.legs.forEach((l, i) => {
+      if (i > 0) {
+        const m = haversine(o.legs[i - 1].to_stop, l.from_stop);
+        if (m >= 30) steps.append(el('li', 'walk', `🚶 Marchez ${dist(m)} jusqu’à l’arrêt ${l.from_stop.name}`));
+      }
+      const li = el('li', `leg ${l.category || 'gbaka'}`);
+      li.append(el('div', 'line', `${o.legs.length > 1 ? `Étape ${i + 1} · ` : ''}${words(l.category)[2]} · ${l.route_name}`));
+      if (l.others.length) li.append(el('div', 'alt', `ou ${l.others.length > 1 ? 'les lignes' : 'la ligne'} ${l.others.join(', ')}`));
+      const up = el('div'); up.append('Montez à ', strong(l.from_stop.name));
+      const down = el('div'); down.append('Descendez à ', strong(l.to_stop.name), ` (${l.stops_count} arrêt${l.stops_count > 1 ? 's' : ''})`);
+      li.append(up, down);
+      steps.append(li);
+    });
+    if (o.walk_to_m > 50) steps.append(el('li', 'walk', `🚶 Marchez ${dist(o.walk_to_m)} jusqu’à ${dest}`));
+    box.append(steps);
+    return box;
+  }
+
+  function showResults(options, from) {
+    const res = $('results'); res.replaceChildren(); res.hidden = false;
+    if (!options.length) {
+      res.append(el('p', null, `Aucune ligne de gbaka ou de wôrô-wôrô ne relie votre position à ${dest}, même avec deux changements. Essayez depuis un autre endroit, ou ouvrez le lieu dans une application de cartes.`));
+    } else {
+      res.append(el('h2', null, `Pour aller ${dest}`));
+      res.lastChild.style.cssText = 'margin:0 0 12px;font-size:1.2rem';
+      res.append(renderOption(options[0], true));
+      if (options.length > 1) {
+        const more = el('details');
+        more.append(el('summary', null, options.length === 2 ? 'Voir un autre trajet' : `Voir ${options.length - 1} autres trajets`));
+        options.slice(1, 5).forEach((o) => more.append(renderOption(o, false)));
+        res.append(more);
+      }
+    }
+    if (map) {
+      const me = document.createElement('div');
+      me.style.cssText = 'width:18px;height:18px;border-radius:50%;background:#2457AD;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)';
+      markers.push(new maplibregl.Marker({ element: me }).setLngLat([from.lng, from.lat]).addTo(map));
+      map.fitBounds([[Math.min(lng, from.lng), Math.min(lat, from.lat)], [Math.max(lng, from.lng), Math.max(lat, from.lat)]], { padding: 50, maxZoom: 15 });
+    }
+    res.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function plan(from) {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/plan_journey`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_from_lat: from.lat, p_from_lng: from.lng, p_to_lat: lat, p_to_lng: lng, p_walk_from_m: 800, p_walk_to_m: 800, p_limit: 12 }),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return group(await r.json());
+  }
+
+  $('route').addEventListener('click', () => {
+    msg('');
+    if (!navigator.geolocation) { msg('Votre navigateur ne donne pas la position. Ouvrez plutôt le lien dans l’app Gbaka Go.'); return; }
+    const btn = $('route'); btn.disabled = true; btn.textContent = 'Recherche de votre position…';
+    navigator.geolocation.getCurrentPosition(async (p) => {
+      const from = { lat: p.coords.latitude, lng: p.coords.longitude };
+      btn.textContent = 'Recherche des trajets…';
+      try {
+        showResults(await plan(from), from);
+      } catch {
+        msg('La recherche des trajets n’a pas abouti. Vérifiez votre connexion, puis réessayez.');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Recalculer depuis ma position';
+      }
+    }, (e) => {
+      btn.disabled = false; btn.textContent = 'Voir le trajet depuis ma position';
+      msg(e.code === 1
+        ? 'Autorisez la localisation pour cette page (réglages du navigateur), puis réessayez.'
+        : 'Position introuvable. Activez le GPS, puis réessayez.');
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  });
+})();
+</script>
+</body>
+</html>
